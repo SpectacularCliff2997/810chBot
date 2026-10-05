@@ -42,6 +42,60 @@ GitHub Pagesでそのまま静的ホスティングして利用可能です。
 
 ---
 
+## 🔒 CORSエラー（Cross-Origin Request Blocked）への対処法
+
+ブラウザから直接APIを叩く際、810chサーバーがCORS事前フライト（OPTIONSリクエスト）に対応していないため、ブラウザのセキュリティ機能によりブロックされます（Status code: 404）。
+
+本ツールでは以下の3つの回避策を用意しています：
+
+### 方法 1: ローカルTorプロキシを使う（推奨・Tor完全強制）
+リポジトリ直下の [`proxy.js`](file:///c:/Users/nekky/Desktop/yjBot/proxy.js) は、外部パッケージ不要で**すべての通信を必ずTorネットワーク経由で中継**するCORSプロキシです。
+
+- **Tor SOCKS5自動検出**: Tor Browser（`127.0.0.1:9150`）またはTorデーモン（`127.0.0.1:9050`）に自動接続
+- **DNSリーク防止**: リモート名前解決（SOCKS5 ATYP 0x03）を強制し、ローカルDNSへの問い合わせを完全に遮断
+- **Tor接続不可時の安全ガード**: Torに接続できない場合は直接通信を行わずエラーを返却（IPの意図しない直接漏洩を完全防止）
+
+1. TorまたはTor Browserを起動した状態で、ターミナルで実行します:
+   ```bash
+   node proxy.js
+   ```
+2. コントロールパネルの **[⚙ 設定]** を開き、**CORSプロキシ** で「`🧅 ローカルTorプロキシ (http://localhost:8080/?url=)`」を選択して **保存** します。
+   （※エラー画面上の「`🧅 ローカルTorプロキシ（Tor経由）を適用して再試行`」ボタンでも即座に切り替わります）
+
+### 方法 2: cURLコマンドをコピーして実行する
+各操作フォームの **[cURLコピー]** ボタンを押すと、入力したパラメータやAPIキーが反映されたcurlコマンドがクリップボードにコピーされます。
+ターミナルに貼り付けて実行すれば、CORSの制約を一切受けずに直接通信できます。
+
+### 方法 3: 自分専用の Cloudflare Worker プロキシを使う（外部から利用する場合）
+スマホ等からGitHub Pagesを利用したい場合、Cloudflare Workers（無料）に以下のコードを貼り付けてデプロイし、設定の「カスタムURL」に登録してください:
+```javascript
+export default {
+  async fetch(request) {
+    if (request.method === "OPTIONS") {
+      return new Response(null, {
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "*",
+          "Access-Control-Allow-Headers": "*",
+        }
+      });
+    }
+    const url = new URL(request.url).searchParams.get("url");
+    if (!url) return new Response("Missing url param", { status: 400 });
+    const res = await fetch(url, {
+      method: request.method,
+      headers: request.headers,
+      body: request.body
+    });
+    const newRes = new Response(res.body, res);
+    newRes.headers.set("Access-Control-Allow-Origin", "*");
+    return newRes;
+  }
+};
+```
+
+---
+
 ## 🛠️ API仕様の対応状況
 
 | メソッド | パス | 機能 | コントロールパネルでの位置 |

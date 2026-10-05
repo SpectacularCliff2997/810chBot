@@ -9,6 +9,7 @@
     SLUG: '810ch_slug',
     API_KEY: '810ch_api_key',
     AUTH_TYPE: '810ch_auth_type',
+    CORS_PRESET: '810ch_cors_preset',
     CORS_PROXY: '810ch_cors_proxy',
     THEME: '810ch_theme',
     HISTORY: '810ch_history'
@@ -19,10 +20,12 @@
     slug: localStorage.getItem(STORAGE_KEYS.SLUG) || 'miichan',
     apiKey: localStorage.getItem(STORAGE_KEYS.API_KEY) || '',
     authType: localStorage.getItem(STORAGE_KEYS.AUTH_TYPE) || 'bearer',
+    corsPreset: localStorage.getItem(STORAGE_KEYS.CORS_PRESET) || 'none',
     corsProxy: localStorage.getItem(STORAGE_KEYS.CORS_PROXY) || '',
     theme: localStorage.getItem(STORAGE_KEYS.THEME) || 'dark',
     history: JSON.parse(localStorage.getItem(STORAGE_KEYS.HISTORY) || '[]'),
-    activeCountdownInterval: null
+    activeCountdownInterval: null,
+    lastTarget: null
   };
 
   // --- DOM Elements ---
@@ -55,8 +58,26 @@
     $('cfg-slug').value = state.slug;
     $('cfg-api-key').value = state.apiKey;
     $('cfg-auth-type').value = state.authType;
+    $('cfg-cors-preset').value = state.corsPreset;
     $('cfg-cors-proxy').value = state.corsProxy;
     $('label-current-slug').textContent = state.slug || 'miichan';
+
+    updateCorsPresetUI();
+  }
+
+  function updateCorsPresetUI() {
+    const preset = $('cfg-cors-preset').value;
+    const customWrap = $('wrap-cors-custom');
+    if (preset === 'custom') {
+      customWrap.style.display = 'flex';
+    } else {
+      customWrap.style.display = 'none';
+      if (preset === 'localhost') {
+        $('cfg-cors-proxy').value = 'http://localhost:8080/?url=';
+      } else if (preset === 'none') {
+        $('cfg-cors-proxy').value = '';
+      }
+    }
   }
 
   function saveConfigFromUI() {
@@ -64,12 +85,21 @@
     state.slug = $('cfg-slug').value.trim() || 'miichan';
     state.apiKey = $('cfg-api-key').value.trim();
     state.authType = $('cfg-auth-type').value;
-    state.corsProxy = $('cfg-cors-proxy').value.trim();
+    state.corsPreset = $('cfg-cors-preset').value;
+    
+    if (state.corsPreset === 'localhost') {
+      state.corsProxy = 'http://localhost:8080/?url=';
+    } else if (state.corsPreset === 'none') {
+      state.corsProxy = '';
+    } else {
+      state.corsProxy = $('cfg-cors-proxy').value.trim();
+    }
 
     localStorage.setItem(STORAGE_KEYS.BASE_URL, state.baseUrl);
     localStorage.setItem(STORAGE_KEYS.SLUG, state.slug);
     localStorage.setItem(STORAGE_KEYS.API_KEY, state.apiKey);
     localStorage.setItem(STORAGE_KEYS.AUTH_TYPE, state.authType);
+    localStorage.setItem(STORAGE_KEYS.CORS_PRESET, state.corsPreset);
     localStorage.setItem(STORAGE_KEYS.CORS_PROXY, state.corsProxy);
 
     updateStatusIndicators();
@@ -284,6 +314,8 @@
       return;
     }
 
+    state.lastTarget = target;
+
     // Update Meta Box
     $('meta-url').textContent = reqData.fullUrl;
     $('meta-method').textContent = reqData.method;
@@ -292,6 +324,7 @@
     $('resp-time').textContent = '-- ms';
     $('resp-viewer').textContent = 'Loading...';
     $('ratelimit-banner').classList.add('hidden');
+    $('cors-banner').classList.add('hidden');
 
     if (state.activeCountdownInterval) {
       clearInterval(state.activeCountdownInterval);
@@ -313,7 +346,14 @@
 
     let fetchUrl = reqData.fullUrl;
     if (state.corsProxy) {
-      fetchUrl = `${state.corsProxy.replace(/\/+$/, '')}/${encodeURIComponent(reqData.fullUrl)}`;
+      const p = state.corsProxy.trim();
+      if (p.endsWith('=')) {
+        fetchUrl = `${p}${encodeURIComponent(reqData.fullUrl)}`;
+      } else if (p.endsWith('?')) {
+        fetchUrl = `${p}${encodeURIComponent(reqData.fullUrl)}`;
+      } else {
+        fetchUrl = `${p.replace(/\/+$/, '')}/${encodeURIComponent(reqData.fullUrl)}`;
+      }
     }
 
     const fetchOptions = {
@@ -374,17 +414,27 @@
       $('resp-status').className = 'status-badge s5xx';
       $('resp-status').textContent = 'NETWORK / CORS ERROR';
 
+      $('cors-banner').classList.remove('hidden');
+
       const errorGuide = [
         `[エラー] リクエストに失敗しました: ${err.message}`,
         '',
-        '【主な原因と解決方法】',
-        '1. ブラウザのCORS制限:',
-        '   APIサーバーが外部オリジン(GitHub Pages)からの直接通信を制限している可能性があります。',
-        '   → 右上の [⚙ 設定] を開き、「CORSプロキシ」を設定するか、',
-        '   → [cURLコピー] を押してターミナルで直接実行してください。',
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+        '【原因: ブラウザのCORS制限 (Cross-Origin Request Blocked)】',
+        '810ch APIサーバーは、ブラウザ(GitHub Pages)からの直接通信に必要な',
+        'CORS許可ヘッダー(Access-Control-Allow-Origin)を返さないため遮断されました。',
         '',
-        '2. APIサーバーまたはネットワークの不通:',
-        '   Base URL (' + state.baseUrl + ') が正しいか確認してください。'
+        '【解決方法（いずれか1つを選択）】',
+        '方法 1. 同梱のローカルTorプロキシを起動する（安全・Tor強制・推奨）',
+        '   TorまたはTor Browserを起動した状態で、ターミナルで以下を実行:',
+        '   $ node proxy.js',
+        '   ※すべてのAPI通信がTorネットワーク(127.0.0.1:9150/9050)を必ず経由します。',
+        '   ※または上の「🧅 ローカルTorプロキシを適用して再試行」ボタンをクリック',
+        '',
+        '方法 2. cURLコマンドをターミナルで実行する',
+        '   各フォームの [cURLコピー] をクリックしてターミナルで叩けば、',
+        '   CORSの制約を一切受けずに直接APIを実行できます。',
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
       ].join('\n');
 
       $('resp-viewer').textContent = errorGuide;
@@ -505,6 +555,22 @@
     $('btn-toggle-key-visibility').addEventListener('click', () => {
       const inp = $('cfg-api-key');
       inp.type = inp.type === 'password' ? 'text' : 'password';
+    });
+
+    // CORS Preset change
+    $('cfg-cors-preset').addEventListener('change', updateCorsPresetUI);
+
+    // Quick-fix CORS button
+    $('btn-quick-fix-cors').addEventListener('click', () => {
+      state.corsPreset = 'localhost';
+      state.corsProxy = 'http://localhost:8080/?url=';
+      localStorage.setItem(STORAGE_KEYS.CORS_PRESET, 'localhost');
+      localStorage.setItem(STORAGE_KEYS.CORS_PROXY, 'http://localhost:8080/?url=');
+      syncConfigToUI();
+      $('cors-banner').classList.add('hidden');
+      if (state.lastTarget) {
+        executeRequest(state.lastTarget);
+      }
     });
 
     // Navigation Tabs

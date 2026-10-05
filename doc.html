@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Exported Page</title>
+  <!-- Bootstrap 5 CSS CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      padding-top: 2rem;
+      padding-bottom: 4rem;
+      background-color: #ffffff;
+    }
+    img {
+      max-width: 100%;
+      height: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card"><div class="card-header"><h5 class="mb-0">API仕様</h5></div><div class="card-body"><p class="mb-2">ベースURL: <code>https://810ch.yajuvideo.st/api/v1</code></p><p class="mb-2">認証（いずれかのヘッダー）。キーは板slug入りの <code>810ch_miichan_xxxx…</code> 形式:</p><pre class="bg-light p-3"><code>Authorization: Bearer 810ch_miichan_xxxxxxxxxxxxxxxx
+# または
+X-API-Key: 810ch_miichan_xxxxxxxxxxxxxxxx</code></pre><p class="mb-2">
+        レートリミット: <b>板ごとに300リクエスト/分</b>。
+        超過したリクエストには <code>429 Too Many Requests</code> を返す（<code>Retry-After</code>ヘッダーに再試行可能までの秒数が入る）。
+      </p><p class="mb-2">エンドポイント（<code>{slug}</code> はこの板のスラグ <code>miichan</code>）:</p><table class="table table-sm">
+        <thead>
+          <tr><th>メソッドとパス</th><th>機能</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>GET /api/v1/boards/{slug}</code></td><td>板情報の取得</td></tr>
+          <tr><td><code>GET /api/v1/boards/{slug}/threads</code></td><td>スレ一覧の取得（page, per_page）</td></tr>
+          <tr><td><code>GET /api/v1/boards/{slug}/threads/{thread_key}</code></td><td>スレ詳細とレス一覧の取得（page, per_page）</td></tr>
+          <tr><td><code>GET /api/v1/boards/{slug}/responses</code></td><td>板への書き込み一覧（最大50件、start_at任意、通常削除済みは除外）</td></tr>
+          <tr><td><code>GET /api/v1/boards/{slug}/threads/{thread_key}/responses/{number}</code></td><td>単一レスの取得</td></tr>
+          <tr><td><code>DELETE /api/v1/boards/{slug}/threads/{thread_key}/responses/{number}</code></td><td>レスの透明削除（番号繰り上げ）</td></tr>
+          <tr><td><code>POST /api/v1/boards/{slug}/threads/{thread_key}/responses/{number}/aborn</code></td><td>レスの通常削除（削除文言で上書き）</td></tr>
+          <tr><td><code>POST /api/v1/boards/{slug}/threads/{thread_key}/force_sage</code></td><td>強制sageの有効化</td></tr>
+          <tr><td><code>DELETE /api/v1/boards/{slug}/threads/{thread_key}/force_sage</code></td><td>強制sageの解除</td></tr>
+          <tr><td><code>POST /api/v1/boards/{slug}/threads/{thread_key}/threadstop</code></td><td>スレストの有効化</td></tr>
+          <tr><td><code>DELETE /api/v1/boards/{slug}/threads/{thread_key}/threadstop</code></td><td>スレストの解除</td></tr>
+          <tr><td><code>DELETE /api/v1/boards/{slug}/threads/{thread_key}</code></td><td>スレッドの削除</td></tr>
+          <tr><td><code>GET /api/v1/boards/{slug}/post_keys</code></td><td>認証キーの一覧（認証キーID・書込数・発行IP/UA等）</td></tr>
+          <tr><td><code>GET /api/v1/boards/{slug}/post_keys/{public_id}/writings</code></td><td>そのキーの書き込み履歴（通常削除済みを除く最新50件・時系列）</td></tr>
+          <tr><td><code>DELETE /api/v1/boards/{slug}/post_keys/{public_id}</code></td><td>認証キーの無効化（そのキーでの書き込み不可に。紐付けは保持）</td></tr>
+          <tr><td><code>POST /api/v1/boards/{slug}/post_keys/{public_id}/aborn_all</code></td><td>そのキーの全書き込みを通常削除</td></tr>
+        </tbody>
+      </table><p class="text-muted small">
+        スレ/レスの取得系は管理用情報（IPアドレス、User-Agent、投稿元、tuid、書き込みに使われた認証キー、削除状態・理由）も返す。
+        認証キーの発行はセルフ発行のみで、APIからは行えない。
+      </p><p class="mb-2 mt-3">パラメータ:</p><div class="table-responsive"><table class="table table-sm">
+          <thead>
+            <tr><th>パラメータ</th><th>対象エンドポイント</th><th>必須</th><th>説明</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>reason</code></td>
+              <td>通常削除（aborn）</td>
+              <td class="text-center">✕</td>
+              <td>削除理由。指定するとレスの <code>aborn_reason</code> と削除ログに記録される。</td>
+            </tr>
+            <tr>
+              <td><code>page</code></td>
+              <td>スレ一覧 / スレ詳細</td>
+              <td class="text-center">✕</td>
+              <td>ページ番号（デフォルト: 1）</td>
+            </tr>
+            <tr>
+              <td><code>per_page</code></td>
+              <td>スレ一覧 / スレ詳細</td>
+              <td class="text-center">✕</td>
+              <td>1ページの件数（デフォルト: 20、最大: 100）</td>
+            </tr>
+            <tr>
+              <td><code>start_at</code></td>
+              <td>書き込み一覧</td>
+              <td class="text-center">✕</td>
+              <td>始点（unix秒）。指定時刻以降の書き込みを時系列で返す。未指定時は最新50件</td>
+            </tr>
+          </tbody>
+        </table></div><p class="mb-2 mt-3">curlサンプル（<code>{thread_key}</code> はスレURL末尾の10桁、<code>{number}</code> はレス番号、<code>{public_id}</code> は認証キーの認証キーID（<code>pk_…</code>。認証キー一覧で確認できる）に置き換える）:</p><div class="mb-3"><div class="mb-1"><span class="small fw-bold">共通（キー設定）</span></div><pre class="bg-dark text-light rounded p-2 mb-0"><code>KEY="810ch_miichan_xxxx…"</code></pre></div><div class="mb-3"><div class="mb-1">
+            <span class="badge bg-primary me-1">GET</span>
+            <span class="small fw-bold">板情報の取得</span>
+          </div><pre class="bg-dark text-light rounded p-2 mb-0"><code>curl -H "Authorization: Bearer $KEY" https://810ch.yajuvideo.st/api/v1/boards/miichan</code></pre></div><div class="mb-3"><div class="mb-1">
+            <span class="badge bg-primary me-1">GET</span>
+            <span class="small fw-bold">スレ一覧の取得（page, per_page）</span>
+          </div><pre class="bg-dark text-light rounded p-2 mb-0"><code>curl -H "Authorization: Bearer $KEY" "https://810ch.yajuvideo.st/api/v1/boards/miichan/threads?page=1&amp;per_page=20"</code></pre></div><div class="mb-3"><div class="mb-1">
+            <span class="badge bg-primary me-1">GET</span>
+            <span class="small fw-bold">スレ詳細とレス一覧の取得</span>
+          </div><pre class="bg-dark text-light rounded p-2 mb-0"><code>curl -H "Authorization: Bearer $KEY" https://810ch.yajuvideo.st/api/v1/boards/miichan/threads/{thread_key}</code></pre></div><div class="mb-3"><div class="mb-1">
+            <span class="badge bg-primary me-1">GET</span>
+            <span class="small fw-bold">板への書き込み一覧（start_at任意）</span>
+          </div><pre class="bg-dark text-light rounded p-2 mb-0"><code>curl -H "Authorization: Bearer $KEY" "https://810ch.yajuvideo.st/api/v1/boards/miichan/responses?start_at=1791000000"</code></pre></div><div class="mb-3"><div class="mb-1">
+            <span class="badge bg-primary me-1">GET</span>
+            <span class="small fw-bold">単一レスの取得</span>
+          </div><pre class="bg-dark text-light rounded p-2 mb-0"><code>curl -H "Authorization: Bearer $KEY" https://810ch.yajuvideo.st/api/v1/boards/miichan/threads/{thread_key}/responses/{number}</code></pre></div><div class="mb-3"><div class="mb-1">
+            <span class="badge bg-danger me-1">DELETE</span>
+            <span class="small fw-bold">レスの透明削除（番号繰り上げ）</span>
+          </div><pre class="bg-dark text-light rounded p-2 mb-0"><code>curl -X DELETE -H "Authorization: Bearer $KEY" https://810ch.yajuvideo.st/api/v1/boards/miichan/threads/{thread_key}/responses/{number}</code></pre></div><div class="mb-3"><div class="mb-1">
+            <span class="badge bg-warning text-dark me-1">POST</span>
+            <span class="small fw-bold">レスの通常削除（reasonは任意）</span>
+          </div><pre class="bg-dark text-light rounded p-2 mb-0"><code>curl -X POST -H "Authorization: Bearer $KEY" -d "reason=スパム" https://810ch.yajuvideo.st/api/v1/boards/miichan/threads/{thread_key}/responses/{number}/aborn</code></pre></div><div class="mb-3"><div class="mb-1">
+            <span class="badge bg-warning text-dark me-1">POST</span>
+            <span class="small fw-bold">強制sageの有効化</span>
+          </div><pre class="bg-dark text-light rounded p-2 mb-0"><code>curl -H "Authorization: Bearer $KEY" -X POST https://810ch.yajuvideo.st/api/v1/boards/miichan/threads/{thread_key}/force_sage</code></pre></div><div class="mb-3"><div class="mb-1">
+            <span class="badge bg-danger me-1">DELETE</span>
+            <span class="small fw-bold">強制sageの解除</span>
+          </div><pre class="bg-dark text-light rounded p-2 mb-0"><code>curl -X DELETE -H "Authorization: Bearer $KEY" https://810ch.yajuvideo.st/api/v1/boards/miichan/threads/{thread_key}/force_sage</code></pre></div><div class="mb-3"><div class="mb-1">
+            <span class="badge bg-warning text-dark me-1">POST</span>
+            <span class="small fw-bold">スレストの有効化</span>
+          </div><pre class="bg-dark text-light rounded p-2 mb-0"><code>curl -H "Authorization: Bearer $KEY" -X POST https://810ch.yajuvideo.st/api/v1/boards/miichan/threads/{thread_key}/threadstop</code></pre></div><div class="mb-3"><div class="mb-1">
+            <span class="badge bg-danger me-1">DELETE</span>
+            <span class="small fw-bold">スレストの解除</span>
+          </div><pre class="bg-dark text-light rounded p-2 mb-0"><code>curl -X DELETE -H "Authorization: Bearer $KEY" https://810ch.yajuvideo.st/api/v1/boards/miichan/threads/{thread_key}/threadstop</code></pre></div><div class="mb-3"><div class="mb-1">
+            <span class="badge bg-danger me-1">DELETE</span>
+            <span class="small fw-bold">スレッドの削除</span>
+          </div><pre class="bg-dark text-light rounded p-2 mb-0"><code>curl -X DELETE -H "Authorization: Bearer $KEY" https://810ch.yajuvideo.st/api/v1/boards/miichan/threads/{thread_key}</code></pre></div><div class="mb-3"><div class="mb-1">
+            <span class="badge bg-primary me-1">GET</span>
+            <span class="small fw-bold">認証キーの一覧</span>
+          </div><pre class="bg-dark text-light rounded p-2 mb-0"><code>curl -H "Authorization: Bearer $KEY" https://810ch.yajuvideo.st/api/v1/boards/miichan/post_keys</code></pre></div><div class="mb-3"><div class="mb-1">
+            <span class="badge bg-primary me-1">GET</span>
+            <span class="small fw-bold">そのキーの書き込み履歴</span>
+          </div><pre class="bg-dark text-light rounded p-2 mb-0"><code>curl -H "Authorization: Bearer $KEY" https://810ch.yajuvideo.st/api/v1/boards/miichan/post_keys/{public_id}/writings</code></pre></div><div class="mb-3"><div class="mb-1">
+            <span class="badge bg-danger me-1">DELETE</span>
+            <span class="small fw-bold">認証キーの無効化</span>
+          </div><pre class="bg-dark text-light rounded p-2 mb-0"><code>curl -X DELETE -H "Authorization: Bearer $KEY" https://810ch.yajuvideo.st/api/v1/boards/miichan/post_keys/{public_id}</code></pre></div><div class="mb-3"><div class="mb-1">
+            <span class="badge bg-warning text-dark me-1">POST</span>
+            <span class="small fw-bold">そのキーの全書き込みを通常削除</span>
+          </div><pre class="bg-dark text-light rounded p-2 mb-0"><code>curl -H "Authorization: Bearer $KEY" -X POST https://810ch.yajuvideo.st/api/v1/boards/miichan/post_keys/{public_id}/aborn_all</code></pre></div><p class="text-muted small mb-0">
+        APIキーはこの板（みいちゃんと山田さん掲示板）専用。
+      </p></div></div>
+
+  </div>
+  <!-- Bootstrap 5 JS Bundle CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

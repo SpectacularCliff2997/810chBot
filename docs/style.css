@@ -669,3 +669,19 @@ details[open] summary {
 .ratelimit-banner.hidden {
   display: none;
 }
+
+/* CORS error warning banner */
+.cors-banner {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid var(--danger);
+  color: var(--text-main);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 11.5px;
+  display: flex;
+  flex-direction: column;
+}
+.cors-banner.hidden {
+  display: none;
+}
+
