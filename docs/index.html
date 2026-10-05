@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>810ch API Control Panel</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Top Header / Utility Bar -->
+  <header>
+    <div class="top-bar">
+      <div class="brand">
+        <span class="brand-badge">API</span>
+        <span class="brand-title">810ch Control Panel</span>
+      </div>
+
+      <div class="quick-status">
+        <div class="status-pill" id="pill-board-info" title="現在の板スラグ">
+          <span class="status-dot active"></span>
+          <span id="label-current-slug">miichan</span>
+        </div>
+        <div class="status-pill" id="pill-auth-status" title="APIキー設定状況">
+          <span class="status-dot warn" id="dot-auth"></span>
+          <span id="label-auth-status">Key未設定</span>
+        </div>
+      </div>
+
+      <div class="top-actions">
+        <button class="btn btn-secondary btn-sm" id="btn-toggle-config" title="API接続設定の開閉">
+          ⚙ 設定 <span id="config-caret">▼</span>
+        </button>
+        <button class="btn btn-secondary btn-sm" id="btn-toggle-theme" title="ダーク/ライト切り替え">
+          🌓
+        </button>
+      </div>
+    </div>
+
+    <!-- Collapsible Settings Panel -->
+    <div class="config-drawer hidden" id="config-drawer">
+      <div class="field">
+        <label>Base URL</label>
+        <input type="text" id="cfg-base-url" value="https://810ch.yajuvideo.st/api/v1">
+      </div>
+      <div class="field">
+        <label>Board Slug (板)</label>
+        <input type="text" id="cfg-slug" value="miichan">
+      </div>
+      <div class="field">
+        <label>API Key (810ch_miichan_xxxx...)</label>
+        <div class="input-with-button">
+          <input type="password" id="cfg-api-key" placeholder="BearerキーまたはX-API-Key">
+          <button class="btn btn-secondary btn-sm" id="btn-toggle-key-visibility" type="button">👁</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>認証ヘッダー方式</label>
+        <select id="cfg-auth-type">
+          <option value="bearer">Authorization: Bearer &lt;Key&gt;</option>
+          <option value="header">X-API-Key: &lt;Key&gt;</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>CORSプロキシ (ブラウザCORS制限対策) <span class="opt">任意</span></label>
+        <input type="text" id="cfg-cors-proxy" placeholder="例: https://corsproxy.io/?" value="">
+      </div>
+      <div class="field" style="justify-content: flex-end;">
+        <label>&nbsp;</label>
+        <div style="display:flex; gap:6px;">
+          <button class="btn btn-primary btn-sm" id="btn-save-config">保存</button>
+          <button class="btn btn-secondary btn-sm" id="btn-clear-key">キー消去</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <div class="app-container">
+    
+    <!-- Left: Operations & Tabs -->
+    <main class="pane-ops">
+      <nav class="tabs-bar" role="tablist">
+        <button class="tab-btn active" data-tab="tab-board">板・書き込み</button>
+        <button class="tab-btn" data-tab="tab-threads">スレッド管理</button>
+        <button class="tab-btn" data-tab="tab-responses">レス操作</button>
+        <button class="tab-btn" data-tab="tab-keys">認証キー管理</button>
+        <button class="tab-btn" data-tab="tab-raw">コンソール</button>
+      </nav>
+
+      <div class="tab-content">
+        
+        <!-- Tab 1: 板・書き込み -->
+        <section class="tab-panel active" id="tab-board">
+          <!-- 1. 板情報の取得 -->
+          <div class="action-card">
+            <div class="action-card-header">
+              <div class="action-title-group">
+                <span class="badge-method get">GET</span>
+                <span class="action-title">板情報の取得</span>
+                <span class="action-endpoint">/boards/{slug}</span>
+              </div>
+              <button class="btn-hint" data-hint="hint-board-info" title="仕様ヒント">?</button>
+            </div>
+            <div class="hint-box hidden" id="hint-board-info">
+              <div>板の基本情報（タイトル、設定、スレ数など）を取得します。</div>
+              <pre>curl -H "Authorization: Bearer $KEY" https://810ch.yajuvideo.st/api/v1/boards/{slug}</pre>
+            </div>
+            <div class="action-row">
+              <button class="btn btn-secondary btn-sm btn-copy-curl" data-target="get-board">cURLコピー</button>
+              <button class="btn btn-primary btn-sm btn-exec" id="btn-get-board">板情報取得</button>
+            </div>
+          </div>
+
+          <!-- 2. 板への書き込み一覧 -->
+          <div class="action-card">
+            <div class="action-card-header">
+              <div class="action-title-group">
+                <span class="badge-method get">GET</span>
+                <span class="action-title">板への書き込み一覧</span>
+                <span class="action-endpoint">/boards/{slug}/responses</span>
+              </div>
+              <button class="btn-hint" data-hint="hint-board-responses" title="仕様ヒント">?</button>
+            </div>
+            <div class="hint-box hidden" id="hint-board-responses">
+              <div>最大50件の書き込みを取得。通常削除済みは除外されます。管理用情報（IP, UA, tuid等）も含まれます。</div>
+              <div><code>start_at</code>: 始点unix秒。指定時刻以降を時系列で取得。未指定時は最新50件。</div>
+              <pre>curl -H "Authorization: Bearer $KEY" "https://810ch.yajuvideo.st/api/v1/boards/{slug}/responses?start_at=1791000000"</pre>
+            </div>
+            <div class="form-grid">
+              <div class="field">
+                <label>始点UNIX秒 (start_at) <span class="opt">任意・未指定時は最新</span></label>
+                <div class="input-with-button">
+                  <input type="number" id="input-board-start-at" placeholder="例: 1791000000">
+                  <button class="btn btn-secondary btn-sm" id="btn-set-now-unix" title="現在時刻(秒)を設定">現在</button>
+                </div>
+              </div>
+            </div>
+            <div class="action-row">
+              <button class="btn btn-secondary btn-sm btn-copy-curl" data-target="get-board-responses">cURLコピー</button>
+              <button class="btn btn-primary btn-sm btn-exec" id="btn-get-board-responses">書き込み取得</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tab 2: スレッド管理 -->
+        <section class="tab-panel" id="tab-threads">
+          <!-- スレ一覧取得 -->
+          <div class="action-card">
+            <div class="action-card-header">
+              <div class="action-title-group">
+                <span class="badge-method get">GET</span>
+                <span class="action-title">スレッド一覧</span>
+                <span class="action-endpoint">/boards/{slug}/threads</span>
+              </div>
+              <button class="btn-hint" data-hint="hint-threads-list" title="仕様ヒント">?</button>
+            </div>
+            <div class="hint-box hidden" id="hint-threads-list">
+              <div>スレッド一覧をページネーションで取得します。</div>
+              <div><code>page</code>: ページ番号 (初期値: 1) / <code>per_page</code>: 1ページの件数 (初期値: 20, 最大: 100)</div>
+              <pre>curl -H "Authorization: Bearer $KEY" "https://810ch.yajuvideo.st/api/v1/boards/{slug}/threads?page=1&per_page=20"</pre>
+            </div>
+            <div class="form-grid">
+              <div class="field">
+                <label>ページ (page)</label>
+                <input type="number" id="input-threads-page" value="1" min="1">
+              </div>
+              <div class="field">
+                <label>件数 (per_page) <span class="opt">最大100</span></label>
+                <input type="number" id="input-threads-per-page" value="20" min="1" max="100">
+              </div>
+            </div>
+            <div class="action-row">
+              <button class="btn btn-secondary btn-sm btn-copy-curl" data-target="get-threads">cURLコピー</button>
+              <button class="btn btn-primary btn-sm btn-exec" id="btn-get-threads">スレ一覧取得</button>
+            </div>
+          </div>
+
+          <!-- スレ詳細 & 操作 -->
+          <div class="action-card">
+            <div class="action-card-header">
+              <div class="action-title-group">
+                <span class="action-title">特定スレッドの取得 & 制御</span>
+                <span class="action-endpoint">/threads/{thread_key}</span>
+              </div>
+              <button class="btn-hint" data-hint="hint-thread-control" title="仕様ヒント">?</button>
+            </div>
+            <div class="hint-box hidden" id="hint-thread-control">
+              <div><code>thread_key</code> はスレURL末尾の10桁（識別キー）です。</div>
+              <div><b>スレ詳細取得</b>: GET /api/v1/boards/{slug}/threads/{thread_key}?page=1&per_page=20</div>
+              <div><b>強制sage</b>: POSTで有効化、DELETEで解除</div>
+              <div><b>スレスト</b>: POSTで書き込み停止、DELETEで停止解除</div>
+              <div><b>スレッド削除</b>: DELETEでスレッドを完全削除（警告あり）</div>
+            </div>
+            <div class="form-grid">
+              <div class="field" style="grid-column: 1 / -1;">
+                <label>スレッドキー (thread_key) <span class="opt">10桁</span></label>
+                <input type="text" id="input-thread-key" placeholder="例: 1712345678">
+              </div>
+              <div class="field">
+                <label>レス一覧ページ (page)</label>
+                <input type="number" id="input-thread-page" value="1" min="1">
+              </div>
+              <div class="field">
+                <label>レス取得件数 (per_page)</label>
+                <input type="number" id="input-thread-per-page" value="20" min="1" max="100">
+              </div>
+            </div>
+
+            <!-- 操作ボタングリッド -->
+            <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; justify-content:space-between; align-items:center;">
+              <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                <button class="btn btn-primary btn-sm btn-exec" id="btn-get-thread-detail">
+                  <span class="badge-method get" style="font-size:9px;">GET</span> 詳細・レス取得
+                </button>
+                <button class="btn btn-secondary btn-sm btn-copy-curl" data-target="get-thread-detail">cURL</button>
+              </div>
+
+              <!-- 折りたたみ可能な管理アクション -->
+              <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                <button class="btn btn-secondary btn-sm" id="btn-post-forcesage" title="スレッドを強制sage状態にします">
+                  <span class="badge-method post" style="font-size:9px;">POST</span> 強制sage
+                </button>
+                <button class="btn btn-secondary btn-sm" id="btn-delete-forcesage" title="強制sageを解除します">
+                  <span class="badge-method delete" style="font-size:9px;">DEL</span> sage解除
+                </button>
+                <button class="btn btn-secondary btn-sm" id="btn-post-threadstop" title="スレッドの書き込みを停止します">
+                  <span class="badge-method post" style="font-size:9px;">POST</span> スレスト
+                </button>
+                <button class="btn btn-secondary btn-sm" id="btn-delete-threadstop" title="スレストを解除します">
+                  <span class="badge-method delete" style="font-size:9px;">DEL</span> スレスト解除
+                </button>
+                <button class="btn btn-danger btn-sm" id="btn-delete-thread" title="スレッド全体を削除します">
+                  <span class="badge-method delete" style="font-size:9px;">DEL</span> スレ削除
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tab 3: レス操作 -->
+        <section class="tab-panel" id="tab-responses">
+          <!-- レス取得 & 削除 -->
+          <div class="action-card">
+            <div class="action-card-header">
+              <div class="action-title-group">
+                <span class="action-title">単一レスの取得・削除</span>
+                <span class="action-endpoint">.../threads/{thread_key}/responses/{number}</span>
+              </div>
+              <button class="btn-hint" data-hint="hint-res-ops" title="仕様ヒント">?</button>
+            </div>
+            <div class="hint-box hidden" id="hint-res-ops">
+              <div><b>単一レス取得</b>: IP, UA, 認証キー等の管理用情報を含むレス情報を取得。</div>
+              <div><b>透明削除 (DELETE)</b>: 掲示板上で番号が繰り上がり、痕跡を残さず削除。</div>
+              <div><b>通常削除 / aborn (POST .../aborn)</b>: 本文を「あぼーん（削除文言）」で上書き。削除理由（reason）を記録可能。</div>
+              <pre># 通常削除 (aborn)
+curl -X POST -H "Authorization: Bearer $KEY" -d "reason=スパム" https://810ch.yajuvideo.st/api/v1/boards/{slug}/threads/{thread_key}/responses/{number}/aborn
+
+# 透明削除
+curl -X DELETE -H "Authorization: Bearer $KEY" https://810ch.yajuvideo.st/api/v1/boards/{slug}/threads/{thread_key}/responses/{number}</pre>
+            </div>
+
+            <div class="form-grid">
+              <div class="field">
+                <label>スレッドキー (thread_key)</label>
+                <input type="text" id="input-res-thread-key" placeholder="10桁スレキー">
+              </div>
+              <div class="field">
+                <label>レス番号 (number)</label>
+                <input type="number" id="input-res-number" placeholder="例: 15" min="1">
+              </div>
+              <div class="field" style="grid-column: 1 / -1;">
+                <label>通常削除の理由 (reason) <span class="opt">任意（通常削除時のみ）</span></label>
+                <input type="text" id="input-res-reason" placeholder="例: スパム・荒らし">
+              </div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; flex-wrap:wrap; gap:8px;">
+              <div style="display:flex; gap:6px;">
+                <button class="btn btn-primary btn-sm btn-exec" id="btn-get-single-res">
+                  <span class="badge-method get" style="font-size:9px;">GET</span> 単一レス取得
+                </button>
+                <button class="btn btn-secondary btn-sm btn-copy-curl" data-target="get-single-res">cURL</button>
+              </div>
+
+              <div style="display:flex; gap:6px;">
+                <button class="btn btn-warning btn-sm" id="btn-aborn-res">
+                  <span class="badge-method post" style="font-size:9px;">POST</span> 通常削除 (aborn)
+                </button>
+                <button class="btn btn-danger btn-sm" id="btn-delete-transparent-res">
+                  <span class="badge-method delete" style="font-size:9px;">DEL</span> 透明削除 (繰上げ)
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tab 4: 認証キー管理 -->
+        <section class="tab-panel" id="tab-keys">
+          <!-- 認証キー一覧 -->
+          <div class="action-card">
+            <div class="action-card-header">
+              <div class="action-title-group">
+                <span class="badge-method get">GET</span>
+                <span class="action-title">認証キー一覧</span>
+                <span class="action-endpoint">/boards/{slug}/post_keys</span>
+              </div>
+              <button class="btn-hint" data-hint="hint-post-keys" title="仕様ヒント">?</button>
+            </div>
+            <div class="hint-box hidden" id="hint-post-keys">
+              <div>板で発行された認証キーの一覧（認証キーID public_id, 書込数, 発行IP/UA等）を取得します。</div>
+              <div>※認証キーの新規発行はセルフ発行のみで、APIからは行えません。</div>
+              <pre>curl -H "Authorization: Bearer $KEY" https://810ch.yajuvideo.st/api/v1/boards/{slug}/post_keys</pre>
+            </div>
+            <div class="action-row">
+              <button class="btn btn-secondary btn-sm btn-copy-curl" data-target="get-post-keys">cURLコピー</button>
+              <button class="btn btn-primary btn-sm btn-exec" id="btn-get-post-keys">一覧取得</button>
+            </div>
+          </div>
+
+          <!-- 個別キー操作 -->
+          <div class="action-card">
+            <div class="action-card-header">
+              <div class="action-title-group">
+                <span class="action-title">キー指定操作 (履歴 / 無効化 / 一括削除)</span>
+                <span class="action-endpoint">/post_keys/{public_id}...</span>
+              </div>
+              <button class="btn-hint" data-hint="hint-key-ops" title="仕様ヒント">?</button>
+            </div>
+            <div class="hint-box hidden" id="hint-key-ops">
+              <div><code>{public_id}</code> は認証キー一覧で得られるID（<code>pk_...</code>形式）です。</div>
+              <div><b>書き込み履歴 (GET .../writings)</b>: 通常削除済みを除く最新50件を時系列で取得。</div>
+              <div><b>認証キー無効化 (DELETE .../{public_id})</b>: 今後の書き込みを禁止（過去の紐付けは保持）。</div>
+              <div><b>全書き込み通常削除 (POST .../aborn_all)</b>: そのキーで行われた全書き込みを通常削除。</div>
+              <pre># 全書き込み削除
+curl -H "Authorization: Bearer $KEY" -X POST https://810ch.yajuvideo.st/api/v1/boards/{slug}/post_keys/{public_id}/aborn_all</pre>
+            </div>
+
+            <div class="form-grid">
+              <div class="field" style="grid-column: 1 / -1;">
+                <label>認証キーID (public_id) <span class="opt">pk_...</span></label>
+                <input type="text" id="input-public-id" placeholder="例: pk_12345678abcdef">
+              </div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; flex-wrap:wrap; gap:8px;">
+              <div style="display:flex; gap:6px;">
+                <button class="btn btn-primary btn-sm btn-exec" id="btn-get-key-writings">
+                  <span class="badge-method get" style="font-size:9px;">GET</span> 書込履歴 (最新50件)
+                </button>
+                <button class="btn btn-secondary btn-sm btn-copy-curl" data-target="get-key-writings">cURL</button>
+              </div>
+
+              <div style="display:flex; gap:6px;">
+                <button class="btn btn-danger btn-sm" id="btn-delete-key" title="この認証キーでの今後の書き込みを停止します">
+                  <span class="badge-method delete" style="font-size:9px;">DEL</span> キー無効化
+                </button>
+                <button class="btn btn-warning btn-sm" id="btn-aborn-all-key" title="このキーのすべてのレスを一括で通常削除します">
+                  <span class="badge-method post" style="font-size:9px;">POST</span> 全書き込み通常削除
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tab 5: Raw API Console -->
+        <section class="tab-panel" id="tab-raw">
+          <div class="action-card">
+            <div class="action-card-header">
+              <div class="action-title-group">
+                <span class="action-title">自由実行コンソール (Raw API Executor)</span>
+              </div>
+              <button class="btn-hint" data-hint="hint-raw" title="ヒント">?</button>
+            </div>
+            <div class="hint-box hidden" id="hint-raw">
+              <div>任意のエンドポイントに対して直接リクエストを発行できます。URL内の <code>{slug}</code> は設定の板スラグに自動置換されます。</div>
+            </div>
+
+            <div class="form-grid">
+              <div class="field" style="max-width: 120px;">
+                <label>Method</label>
+                <select id="raw-method">
+                  <option value="GET">GET</option>
+                  <option value="POST">POST</option>
+                  <option value="DELETE">DELETE</option>
+                  <option value="PUT">PUT</option>
+                  <option value="PATCH">PATCH</option>
+                </select>
+              </div>
+              <div class="field" style="flex:1;">
+                <label>相対パス または フルURL</label>
+                <input type="text" id="raw-path" value="/boards/{slug}">
+              </div>
+            </div>
+
+            <div class="field" style="margin-top:6px;">
+              <label>Body (POST時など / x-www-form-urlencoded または JSON) <span class="opt">任意</span></label>
+              <textarea id="raw-body" rows="2" placeholder="例: reason=スパム または {&quot;reason&quot;: &quot;スパム&quot;}"></textarea>
+            </div>
+
+            <div class="action-row">
+              <button class="btn btn-secondary btn-sm btn-copy-curl" data-target="raw-exec">cURLコピー</button>
+              <button class="btn btn-primary btn-sm btn-exec" id="btn-exec-raw">送信実行</button>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+
+    <!-- Right: Response & Inspector -->
+    <aside class="pane-inspector">
+      <div class="inspector-header">
+        <div class="inspector-meta">
+          <span class="status-badge" id="resp-status">READY</span>
+          <span class="time-badge" id="resp-time">-- ms</span>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button class="btn btn-secondary btn-sm" id="btn-copy-resp" title="レスポンスJSONをコピー">コピー</button>
+          <button class="btn btn-secondary btn-sm" id="btn-clear-resp" title="表示クリア">クリア</button>
+        </div>
+      </div>
+
+      <!-- Rate Limit Alert Banner -->
+      <div class="ratelimit-banner hidden" id="ratelimit-banner">
+        <span>⚠️ レートリミット制限 (429 Too Many Requests)</span>
+        <span id="ratelimit-countdown">待機中...</span>
+      </div>
+
+      <div class="inspector-body">
+        <!-- Request Summary Info -->
+        <div class="meta-box" id="req-meta-box">
+          <div class="meta-row">
+            <span class="meta-label">Request URL:</span>
+            <span class="meta-value" id="meta-url">-</span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-label">Method:</span>
+            <span class="meta-value" id="meta-method">-</span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-label">Rate Limit:</span>
+            <span class="meta-value" id="meta-ratelimit">300 req/min (規定)</span>
+          </div>
+        </div>
+
+        <!-- Response Body -->
+        <pre class="response-viewer" id="resp-viewer">// APIを実行すると結果がここに表示されます。
+// ヒントボタン [?] で各機能の仕様を確認できます。</pre>
+
+        <!-- Request History -->
+        <div class="history-section">
+          <div class="history-title">
+            <span>実行履歴</span>
+            <button class="btn btn-secondary btn-sm" style="font-size:9px; padding:1px 5px;" id="btn-clear-history">消去</button>
+          </div>
+          <div class="history-list" id="history-list">
+            <!-- 履歴がJSによって追加される -->
+          </div>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- Confirm Modal -->
+  <div class="modal-backdrop hidden" id="confirm-modal">
+    <div class="modal-box">
+      <div class="modal-title" id="modal-title">⚠️ 警告: 破壊的操作の確認</div>
+      <div class="modal-desc" id="modal-desc">この操作を実行してもよろしいですか？</div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary btn-sm" id="btn-modal-cancel">キャンセル</button>
+        <button class="btn btn-danger btn-sm" id="btn-modal-confirm">実行する</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
